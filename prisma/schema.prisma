@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  passwordHash     String
+  createdAt        DateTime          @default(now())
+  ownedWorkspaces  Workspace[]       @relation("WorkspaceOwner")
+  memberships      WorkspaceMember[]
+  notes            LeadNote[]
+  sessions         Session[]
+}
+
+model Workspace {
+  id             String            @id @default(cuid())
+  name           String
+  slug           String            @unique
+  industryType   String
+  timezone       String
+  ownerUserId    String
+  createdAt      DateTime          @default(now())
+  owner          User              @relation("WorkspaceOwner", fields: [ownerUserId], references: [id])
+  members        WorkspaceMember[]
+  leads          Lead[]
+  templates      Template[]
+}
+
+model WorkspaceMember {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@unique([workspaceId, userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Lead {
+  id               String         @id @default(cuid())
+  workspaceId      String
+  fullName         String
+  phone            String
+  email            String
+  company          String
+  source           String
+  serviceType      String
+  status           String
+  budgetMin        Int
+  budgetMax        Int
+  priority         String
+  lastContactedAt  DateTime
+  nextFollowUpAt   DateTime
+  wonAt            DateTime?
+  lostAt           DateTime?
+  lostReason       String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  workspace        Workspace      @relation(fields: [workspaceId], references: [id])
+  notes            LeadNote[]
+  followUps        FollowUp[]
+  quotes           Quote[]
+  activities       LeadActivity[]
+  tags             LeadTag[]
+
+  @@index([workspaceId, status])
+}
+
+model LeadNote {
+  id            String   @id @default(cuid())
+  leadId        String
+  authorUserId  String
+  noteType      String
+  content       String
+  createdAt     DateTime @default(now())
+  lead          Lead     @relation(fields: [leadId], references: [id])
+  author        User     @relation(fields: [authorUserId], references: [id])
+}
+
+model FollowUp {
+  id          String   @id @default(cuid())
+  leadId      String
+  dueAt       DateTime
+  status      String
+  summary     String
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  lead        Lead     @relation(fields: [leadId], references: [id])
+
+  @@index([leadId, status, dueAt])
+}
+
+model Quote {
+  id          String          @id @default(cuid())
+  leadId      String
+  quoteNumber String          @unique
+  status      String
+  currency    String
+  subtotal    Int
+  discount    Int
+  total       Int
+  validUntil  DateTime
+  introText   String
+  termsText   String
+  createdAt   DateTime        @default(now())
+  lead        Lead            @relation(fields: [leadId], references: [id])
+  lineItems   QuoteLineItem[]
+}
+
+model QuoteLineItem {
+  id          String   @id @default(cuid())
+  quoteId     String
+  title       String
+  description String
+  quantity    Int
+  unitPrice   Int
+  sortOrder   Int
+  quote       Quote    @relation(fields: [quoteId], references: [id])
+}
+
+model Template {
+  id          String    @id @default(cuid())
+  workspaceId String
+  type        String
+  name        String
+  body        String
+  createdAt   DateTime  @default(now())
+  workspace   Workspace @relation(fields: [workspaceId], references: [id])
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  type      String
+  metadata  String
+  createdAt DateTime @default(now())
+  lead      Lead     @relation(fields: [leadId], references: [id])
+}
+
+model Tag {
+  id    String    @id @default(cuid())
+  name  String    @unique
+  leads LeadTag[]
+}
+
+model LeadTag {
+  leadId String
+  tagId  String
+  lead   Lead @relation(fields: [leadId], references: [id])
+  tag    Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([leadId, tagId])
+}
